@@ -2,15 +2,15 @@ import telebot
 from telebot import types
 import google.generativeai as genai
 import os
-import time
+from flask import Flask, request
 
 # --- НАСТРОЙКИ ЧЕРЕЗ ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ---
-# На Render эти ключи задаются в разделе "Environment Variables"
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Например: https://your-app.onrender.com
 
-if not TELEGRAM_TOKEN or not GEMINI_API_KEY:
-    print("Ошибка: Не заданы переменные окружения TELEGRAM_TOKEN или GEMINI_API_KEY")
+if not TELEGRAM_TOKEN or not GEMINI_API_KEY or not WEBHOOK_URL:
+    print("Ошибка: Не заданы переменные окружения TELEGRAM_TOKEN, GEMINI_API_KEY или WEBHOOK_URL")
     exit(1)
 
 # Инициализация Gemini API через официальный SDK
@@ -22,6 +22,9 @@ REQUIRED_CHANNELS = ['@focuspt18', '@focuspt']
 
 # Инициализация бота
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
+
+# Инициализация Flask для webhook
+app = Flask(__name__)
 
 def ask_gemini(text):
     """Запрос к Gemini API через официальный SDK"""
@@ -106,12 +109,44 @@ def text_handler(message):
     else:
         bot.reply_to(message, answer)
 
+# --- FLASK WEBHOOK ---
+
+@app.route('/' + TELEGRAM_TOKEN, methods=['POST'])
+def webhook():
+    """Обработка входящих обновлений от Telegram"""
+    if request.headers.get('content-type') == 'application/json':
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return '', 200
+    else:
+        return '', 403
+
+@app.route('/')
+def index():
+    """Главная страница для проверки работоспособности"""
+    return 'Bot is running!', 200
+
+@app.route('/setwebhook')
+def set_webhook():
+    """Установка webhook (вызвать один раз после деплоя)"""
+    webhook_url = f"{WEBHOOK_URL}/{TELEGRAM_TOKEN}"
+    result = bot.set_webhook(url=webhook_url)
+    if result:
+        return f"Webhook установлен: {webhook_url}", 200
+    else:
+        return "Ошибка установки webhook", 500
+
 # --- ЗАПУСК ---
 if __name__ == '__main__':
-    print("🚀 Бот запущен (режим Polling)")
-    while True:
-        try:
-            bot.infinity_polling(timeout=60, long_polling_timeout=60)
-        except Exception as e:
-            print(f"⚠️ Падение бота: {e}")
-            time.sleep(5) # Ждем 5 сек перед перезапуском
+    print("🚀 Бот запущен (режим Webhook)")
+    
+    # Удаляем старый webhook и устанавливаем новый
+    bot.remove_webhook()
+    webhook_url = f"{WEBHOOK_URL}/{TELEGRAM_TOKEN}"
+    bot.set_webhook(url=webhook_url)
+    print(f"✅ Webhook установлен: {webhook_url}")
+    
+    # Запускаем Flask на порту, который предоставляет Render
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
