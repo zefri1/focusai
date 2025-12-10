@@ -15,13 +15,13 @@ if not TELEGRAM_TOKEN or not GEMINI_API_KEY or not WEBHOOK_URL:
 
 # Инициализация Gemini API через официальный SDK
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
 # Каналы для обязательной подписки
 REQUIRED_CHANNELS = ['@focuspt18', '@focuspt']
 
-# Инициализация бота
-bot = telebot.TeleBot(TELEGRAM_TOKEN)
+# Инициализация бота с отключением threaded для webhook
+bot = telebot.TeleBot(TELEGRAM_TOKEN, threaded=False)
 
 # Инициализация Flask для webhook
 app = Flask(__name__)
@@ -141,7 +141,7 @@ def set_webhook():
 if __name__ == '__main__':
     print("🚀 Бот запущен (режим Webhook)")
     
-    # Удаляем старый webhook и устанавливаем новый
+    # Удаляем старый webhook/polling и устанавливаем новый
     bot.remove_webhook()
     webhook_url = f"{WEBHOOK_URL}/{TELEGRAM_TOKEN}"
     bot.set_webhook(url=webhook_url)
