@@ -1,6 +1,6 @@
 import telebot
 from telebot import types
-import requests
+import google.generativeai as genai
 import os
 import time
 
@@ -13,6 +13,10 @@ if not TELEGRAM_TOKEN or not GEMINI_API_KEY:
     print("Ошибка: Не заданы переменные окружения TELEGRAM_TOKEN или GEMINI_API_KEY")
     exit(1)
 
+# Инициализация Gemini API через официальный SDK
+genai.configure(api_key=GEMINI_API_KEY)
+model = genai.GenerativeModel('gemini-1.5-flash')
+
 # Каналы для обязательной подписки
 REQUIRED_CHANNELS = ['@focuspt18', '@focuspt']
 
@@ -20,32 +24,12 @@ REQUIRED_CHANNELS = ['@focuspt18', '@focuspt']
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 
 def ask_gemini(text):
-    """Запрос к Gemini API (прямой, без прокси)"""
-    # Используем стабильную версию API v1beta
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-    
-    headers = {'Content-Type': 'application/json'}
-    data = {
-        "contents": [{
-            "parts": [{"text": text}]
-        }]
-    }
-    
+    """Запрос к Gemini API через официальный SDK"""
     try:
-        response = requests.post(url, headers=headers, json=data, timeout=30)
-        
-        if response.status_code == 200:
-            try:
-                return response.json()['candidates'][0]['content']['parts'][0]['text']
-            except (KeyError, IndexError):
-                return "⚠️ Нейросеть не вернула текст. Попробуйте переформулировать."
-        elif response.status_code == 429:
-             return "⏳ Слишком много запросов. Подождите немного."
-        else:
-            return f"❌ Ошибка API ({response.status_code})"
-            
+        response = model.generate_content(text)
+        return response.text
     except Exception as e:
-        return f"❌ Ошибка соединения: {e}"
+        return f"❌ Ошибка API: {str(e)}"
 
 def check_subscription(user_id):
     """Проверка подписки"""
