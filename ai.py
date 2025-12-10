@@ -15,7 +15,8 @@ if not TELEGRAM_TOKEN or not GEMINI_API_KEY or not WEBHOOK_URL:
 
 # Инициализация Gemini API через официальный SDK
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash-latest')
+# Используем актуальную модель Gemini 2.5 Flash
+model = genai.GenerativeModel('gemini-2.5-flash')
 
 # Каналы для обязательной подписки
 REQUIRED_CHANNELS = ['@focuspt18', '@focuspt']
